@@ -1,8 +1,8 @@
-from django.urls import path
-from .views import index, about, contact
+from django.urls import path, re_path
+from .views import main, about, contact
 
 urlpatterns = [
-    path('', index, name='index'),
-    path('about', about, name = 'about'),
-    path('contact', contact, name = 'contact')
+    path('', about, name = 'about'),
+    re_path(r'^main', main, name='index'),
+    re_path(r'^contact', contact, name = 'contact')
 ]
