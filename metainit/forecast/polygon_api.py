@@ -32,8 +32,10 @@ def get_stock_data(ticker, multiplier=15, timespan="minute", limit=500):
         print("Ошибка:", data)
         return None
 
-# Запрашиваем данные по AAPL
+# Запрашиваем данные по AAPL для тестов скрипта
 df = get_stock_data("AAPL")
+"""Будущая функция"""
+#!! df = get_stock_data(f'{name_from_mainpage}')
 
 # Выводим результат
 if df is not None:
