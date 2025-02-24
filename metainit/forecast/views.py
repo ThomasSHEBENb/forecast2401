@@ -1,14 +1,10 @@
 from django.shortcuts import render
-# Create your views here.
-from django.http import HttpResponse
-
 
 def about(request):
-    return HttpResponse("О сайте")
-
+    return render(request, 'forecast/about.html')
 
 def main(request):
-    return HttpResponse("Выбор прогноза")
- 
+    return render(request, 'forecast/main.html')
+
 def contact(request):
-    return HttpResponse("Контакты")
+    return render(request, 'forecast/contact.html')
