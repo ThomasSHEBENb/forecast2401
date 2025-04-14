@@ -1,10 +1,10 @@
 from django.shortcuts import render
 
-def about(request):
-    return render(request, 'forecast/about.html')
+def main_page(request):
+    return render(request, 'main.html')
 
-def main(request):
-    return render(request, 'forecast/main.html')
+def about_page(request):
+    return render(request, 'about.html')
 
-def contact(request):
-    return render(request, 'forecast/contact.html')
+def contact_page(request):
+    return render(request, 'contact.html')

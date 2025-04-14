@@ -26,7 +26,7 @@ def get_stock_data(ticker, multiplier=1, timespan="day", limit=500):
     url = f"https://api.polygon.io/v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{start_date}/{end_date}?adjusted=true&sort=asc&limit={limit}&apiKey={API_KEY}"
     response = requests.get(url)
     data = response.json()
-    
+     
     if "results" in data:
         df = pd.DataFrame(data["results"])
         df["t"] = pd.to_datetime(df["t"], unit="ms") 
@@ -128,13 +128,14 @@ def make_market_decision(ticker):
 
     if rsi > 70:
         return "актив перекуплен, воздержитесь от входа в ближайшее время"
-    if rsi < 30:
+    elif rsi < 30:
         return "актив перепродан, воздержитесь от входа в ближайшее время"
-    if 30 < rsi < 70:
-        if last_close < ema100 and last_close < ema50 and ema50 != ema100:
-            return "виден нисходящий тренд"
-        if last_close > ema100 and last_close > ema50 and ema50 != ema100:
-            return "виден восходящий тренд"
+    elif last_close < ema100 and last_close < ema50 and ema50 != ema100:
+        return "виден нисходящий тренд"
+    elif last_close > ema100 and last_close > ema50 and ema50 != ema100:
+        return "виден восходящий тренд"
+    elif abs(ema50 - ema100) < 5:
+        return "есть признаки разворота тренда по EMA"
 
     return "нет явного тренда"
 

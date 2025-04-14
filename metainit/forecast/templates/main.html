@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Главная{% endblock %}
+{% block content %}
+    <h1>Выберите акцию для прогноза</h1>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" name="stock" value="AAPL">Apple</button>
+        <button type="submit" name="stock" value="TSLA">Tesla</button>
+        <button type="submit" name="stock" value="GOOGL">Google</button>
+    </form>
+    {% if prediction %}
+        <p>Результат прогноза: {{ prediction }}</p>
+    {% endif %}
+{% endblock %}
