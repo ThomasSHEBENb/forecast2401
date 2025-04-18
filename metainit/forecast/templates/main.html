@@ -1,14 +1,21 @@
 {% extends 'base.html' %}
+
 {% block title %}Главная{% endblock %}
+
 {% block content %}
-    <h1>Выберите акцию для прогноза</h1>
-    <form method="post">
-        {% csrf_token %}
-        <button type="submit" name="stock" value="AAPL">Apple</button>
-        <button type="submit" name="stock" value="TSLA">Tesla</button>
-        <button type="submit" name="stock" value="GOOGL">Google</button>
-    </form>
-    {% if prediction %}
-        <p>Результат прогноза: {{ prediction }}</p>
+    <h2>Выберите инструмент для анализа:</h2>
+    <div class="buttons">
+        <form method="post" action="">
+            {% csrf_token %}
+            <button type="submit" name="instrument" value="AAPL">Apple</button>
+            <button type="submit" name="instrument" value="GOOGL">Google</button>
+            <button type="submit" name="instrument" value="TSLA">Tesla</button>
+        </form>
+    </div>
+
+    {% if result %}
+        <div class="result">
+            <p>Результат анализа: {{ result }}</p>
+        </div>
     {% endif %}
 {% endblock %}

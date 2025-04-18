@@ -3,9 +3,35 @@ import os
 import pandas as pd
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
-from sys import stdout
-stdout.reconfigure(encoding='utf-8')
+import threading
+import time
 
+market_data_cache = {}
+
+def start_data_update_loop():
+    if hasattr(start_data_update_loop, "_started"):
+        return  # Поток уже запущен
+
+    start_data_update_loop._started = True
+
+    tickers = ['GOOGL', 'AAPL', 'TSLA']
+    ticker_index = 0
+
+    def update_data():
+        nonlocal ticker_index
+        while True:
+            ticker = tickers[ticker_index]
+            try:
+                print(f"Обновление данных для: {ticker}")
+                result = make_market_decision(ticker)
+                market_data_cache[ticker] = result
+                print(f"Результат сохранён: {ticker} → {result}")
+            except Exception as e:
+                print(f"Ошибка при обновлении {ticker}: {e}")
+            ticker_index = (ticker_index + 1) % len(tickers)
+            time.sleep(65)
+
+    threading.Thread(target=update_data, daemon=True).start()
 
 
 # Загружаем ключ API
@@ -112,31 +138,64 @@ def get_current_ema50(ticker, window=50, limit=1):
 # Запрашиваем данные по AAPL для тестов скрипта
 #!! ticker_data = get_stock_data(f'{name_from_mainpage}')
 
+market_data_cache = {
+    "AAPL": None,
+    "GOOGL": None,
+    "TSLA": None,
+}
+
+
 def make_market_decision(ticker):
     ema100_data = get_current_ema100(ticker)
+    time.sleep(3)
     ema50_data = get_current_ema50(ticker)
+    time.sleep(3)
     rsi_data = get_current_rsi(ticker)
+    time.sleep(3)
     stock_data = get_stock_data(ticker)
-    ema100 = ema100_data['value'].iloc[0]
-    ema50 = ema50_data['value'].iloc[0]
-    rsi = rsi_data['value'].iloc[0]
+    time.sleep(3)
 
-    if 'c' not in stock_data:
-        return "Ошибка: В stock_data нет закрытых цен"
+    if (
+        ema100_data is None or ema100_data.empty or
+        ema50_data is None or ema50_data.empty or
+        rsi_data is None or rsi_data.empty or
+        stock_data is None or stock_data.empty
+    ):
+        return f"Ошибка: Не удалось получить данные для {ticker}"
+    
+    try:
+        ema100 = ema100_data['value'].iloc[0]
+        ema50 = ema50_data['value'].iloc[0]
+        rsi = rsi_data['value'].iloc[0]
+        last_close = stock_data['c'].iloc[0]
+    except Exception as e:
+        return f"Ошибка при обработке данных: {e}"
 
-    last_close = stock_data['c'].iloc[0]
 
     if rsi > 70:
-        return "актив перекуплен, воздержитесь от входа в ближайшее время"
+        result = "актив перекуплен, воздержитесь от входа в ближайшее время"
     elif rsi < 30:
-        return "актив перепродан, воздержитесь от входа в ближайшее время"
+        result = "актив перепродан, воздержитесь от входа в ближайшее время"
     elif last_close < ema100 and last_close < ema50 and ema50 != ema100:
-        return "виден нисходящий тренд"
+        result = "виден нисходящий тренд"
     elif last_close > ema100 and last_close > ema50 and ema50 != ema100:
-        return "виден восходящий тренд"
+        result = "виден восходящий тренд"
     elif abs(ema50 - ema100) < 5:
-        return "есть признаки разворота тренда по EMA"
+        result = "есть признаки разворота тренда по EMA"
+    else:
+        result = "нет явного тренда"
 
-    return "нет явного тренда"
 
-print(make_market_decision('AAPL'))
+    market_data_cache[ticker] = result
+    market_data_cache[f"{ticker}_details"] = {
+        'last_close': last_close,
+        'ema100': ema100,
+        'ema50': ema50,
+        'rsi': rsi
+    }
+
+    return result
+
+
+
+
