@@ -38,30 +38,23 @@ def start_data_update_loop():
 load_dotenv()
 API_KEY = os.getenv("POLYGON_API_KEY")
 
-def get_previous_business_day(date):
-    while date.weekday() in [5, 6]:  # 5 - суббота, 6 - воскресенье
-        date -= timedelta(days=1)
-    return date
 
-# Определяем диапазон дат
-end_date = get_previous_business_day(datetime.today()).strftime('%Y-%m-%d')
-start_date = get_previous_business_day(datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
 
 def get_stock_data(ticker, multiplier=1, timespan="day", limit=500):
-    #Получает данные за последние сутки.
-    url = f"https://api.polygon.io/v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{start_date}/{end_date}?adjusted=true&sort=asc&limit={limit}&apiKey={API_KEY}"
+    url = f"https://api.polygon.io/v2/aggs/ticker/{ticker}/prev?adjusted=true&apiKey={API_KEY}"
     response = requests.get(url)
     data = response.json()
-     
-    if "results" in data:
+
+    if "results" in data and data["results"]:
         df = pd.DataFrame(data["results"])
-        df["t"] = pd.to_datetime(df["t"], unit="ms") 
+        df["t"] = pd.to_datetime(data["results"][0]["t"], unit="ms")
         df.set_index("t", inplace=True)
         df = df.drop(['vw', 'h', 'l', 'n', 'o'], axis=1)
         return df
     else:
         print("Ошибка:", data)
         return None
+
 def get_current_rsi(ticker, limit=1, window=12):
     #Получает rsi за последние сутки
     url = f"https://api.polygon.io/v1/indicators/rsi/{ticker}?adjusted=true&window={window}&series_type=close&order=desc&limit={limit}&apiKey={API_KEY}"
