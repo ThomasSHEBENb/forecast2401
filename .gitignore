@@ -1,1 +1,16 @@
+
+*.sqlite3
+*.log
+__pycache__/
 .env
+.env.local
+
+.venv/
+venv/
+
+
+.vscode/
+.idea/
+
+
+static/

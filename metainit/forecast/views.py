@@ -2,18 +2,24 @@ from django.shortcuts import render
 from .polygon_api import market_data_cache
 import csv
 import os
-from django.http import JsonResponse  
+from .polygon_api import generate_stock_plot  
 
 
 def main_page(request):
     result = None
+    plot_url = None
+    #Взаимодействие с Http-запросами для реализации взаимодействия кнопок с пользователем и получения данных из кэша
     if request.method == 'POST':
         ticker = request.POST.get('instrument')
         if ticker in market_data_cache:
             result = market_data_cache[ticker]
             details = market_data_cache.get(f"{ticker}_details")
+            df = market_data_cache.get(f"{ticker}_df")  
 
-            # Логируем данные, если есть подробности
+            if df is not None:
+                plot_url = generate_stock_plot(ticker, df)
+
+            # Логируем данные в csv-файл
             if details:
                 log_path = os.path.join(os.path.dirname(__file__), 'log.csv')
                 file_exists = os.path.isfile(log_path)
@@ -25,10 +31,9 @@ def main_page(request):
                     if not file_exists:
                         writer.writeheader()
 
-                    # Считаем номер записи
-                    with open(log_path, 'r') as f:
+                    with open(log_path, 'r', encoding='utf-8-sig') as f:
                         lines = f.readlines()
-                        count = len(lines) if file_exists else 1  # Учитываем заголовок
+                        count = len(lines) if file_exists else 1
 
                     writer.writerow({
                         'ID': count,
@@ -42,7 +47,8 @@ def main_page(request):
         else:
             result = "Нет данных для этого тикера."
 
-    return render(request, 'main.html', {'result': result})
+    return render(request, 'main.html', {'result': result, 'plot_url': plot_url})
+
 
 
 def contact_page(request):

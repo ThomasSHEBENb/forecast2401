@@ -2,11 +2,50 @@ import requests
 import os
 import pandas as pd
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
 import threading
 import time
+import matplotlib.pyplot as plt
+from datetime import datetime, timedelta
+###!!! Для запуска программы нужно перейти в терминале в папку проекта cd metainit (если вы не в нем)
+###!!! Ввести команду python manage.py runserver и перейти по ссылке на локалхосте
 
-market_data_cache = {}
+
+#функция для формирования графика
+def generate_stock_plot(ticker, df):
+    import matplotlib.pyplot as plt
+    import os
+    import pandas as pd
+
+    # Убедимся, что индекс — это datetime
+    df.index = pd.to_datetime(df.index)
+    df = df.sort_index()
+
+    # Проверка наличия данных
+    if 'c' not in df.columns or df['c'].isna().all():
+        print("Нет данных для построения графика")
+        return None
+
+    plt.figure(figsize=(20, 6))
+    plt.plot(df.index, df['c'], label='Цена закрытия', color='blue')
+    plt.title(f'{ticker} Рыночная Цена')
+    plt.xlabel('Дата в западном формате')
+    plt.ylabel('Цена закрытия')
+    plt.grid(True)
+    plt.legend()
+
+    # Путь до static/plots для сохранения и будущего использования
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    image_dir = os.path.join(base_dir, '..', 'static', 'plots')
+    os.makedirs(image_dir, exist_ok=True)
+
+    image_path = os.path.join(image_dir, f'{ticker}_plot.png')
+    plt.savefig(image_path, bbox_inches='tight')
+    plt.close()
+
+    return f'/static/plots/{ticker}_plot.png'
+
+
+
 
 def start_data_update_loop():
     if hasattr(start_data_update_loop, "_started"):
@@ -16,7 +55,7 @@ def start_data_update_loop():
 
     tickers = ['GOOGL', 'AAPL', 'TSLA']
     ticker_index = 0
-
+    #Обновление кэша
     def update_data():
         nonlocal ticker_index
         while True:
@@ -40,19 +79,27 @@ API_KEY = os.getenv("POLYGON_API_KEY")
 
 
 
-def get_stock_data(ticker, multiplier=1, timespan="day", limit=500):
-    url = f"https://api.polygon.io/v2/aggs/ticker/{ticker}/prev?adjusted=true&apiKey={API_KEY}"
-    response = requests.get(url)
-    data = response.json()
+def get_stock_data(ticker):
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=14)  # запас на выходные
 
-    if "results" in data and data["results"]:
-        df = pd.DataFrame(data["results"])
-        df["t"] = pd.to_datetime(data["results"][0]["t"], unit="ms")
-        df.set_index("t", inplace=True)
-        df = df.drop(['vw', 'h', 'l', 'n', 'o'], axis=1)
+    url = f"https://api.polygon.io/v2/aggs/ticker/{ticker}/range/1/day/{start_date.strftime('%Y-%m-%d')}/{end_date.strftime('%Y-%m-%d')}?adjusted=true&sort=asc&limit=10&apiKey={API_KEY}"
+    
+    try:
+        response = requests.get(url)
+        data = response.json()
+        
+        if 'results' not in data:
+            return None
+
+        df = pd.DataFrame(data['results'])
+        df['t'] = pd.to_datetime(df['t'], unit='ms')  # преобразуем timestamp
+        df.set_index('t', inplace=True)
+        df.rename(columns={'c': 'c'}, inplace=True)  # 'c' уже — close
         return df
-    else:
-        print("Ошибка:", data)
+
+    except Exception as e:
+        print(f"Ошибка ЫSпри получении данных для {ticker}: {e}")
         return None
 
 def get_current_rsi(ticker, limit=1, window=12):
@@ -130,14 +177,35 @@ def get_current_ema50(ticker, window=50, limit=1):
 
 # Запрашиваем данные по AAPL для тестов скрипта
 #!! ticker_data = get_stock_data(f'{name_from_mainpage}')
-
+#формируем кэш для эффективной работы с API
 market_data_cache = {
-    "AAPL": None,
-    "GOOGL": None,
-    "TSLA": None,
+    "AAPL": {
+        "result": None,
+        "last_close": None,
+        "ema100": None,
+        "ema50": None,
+        "rsi": None,
+        "df": None  # датафрейм с ценами для графика
+    },
+    "GOOGL": {
+        "result": None,
+        "last_close": None,
+        "ema100": None,
+        "ema50": None,
+        "rsi": None,
+        "df": None
+    },
+    "TSLA": {
+        "result": None,
+        "last_close": None,
+        "ema100": None,
+        "ema50": None,
+        "rsi": None,
+        "df": None
+    }
 }
 
-
+#Основная функция для вынесения прогноза
 def make_market_decision(ticker):
     ema100_data = get_current_ema100(ticker)
     time.sleep(3)
@@ -155,16 +223,15 @@ def make_market_decision(ticker):
         stock_data is None or stock_data.empty
     ):
         return f"Ошибка: Не удалось получить данные для {ticker}"
-    
+    #Попытка получчения нужных данных из датафрейма
     try:
-        ema100 = ema100_data['value'].iloc[0]
-        ema50 = ema50_data['value'].iloc[0]
-        rsi = rsi_data['value'].iloc[0]
-        last_close = stock_data['c'].iloc[0]
+        ema100 = ema100_data['value'].iloc[-1]
+        ema50 = ema50_data['value'].iloc[-1]
+        rsi = rsi_data['value'].iloc[-1]
+        last_close = stock_data['c'].iloc[-1]
     except Exception as e:
         return f"Ошибка при обработке данных: {e}"
-
-
+    #Вынесение решения на основе индикаторов
     if rsi > 70:
         result = "актив перекуплен, воздержитесь от входа в ближайшее время"
     elif rsi < 30:
@@ -178,17 +245,17 @@ def make_market_decision(ticker):
     else:
         result = "нет явного тренда"
 
-
+    #Формирование кэша для визуализации данных
     market_data_cache[ticker] = result
     market_data_cache[f"{ticker}_details"] = {
-        'last_close': last_close,
-        'ema100': ema100,
-        'ema50': ema50,
-        'rsi': rsi
+        "last_close": last_close,
+        "ema100": ema100,
+        "ema50": ema50,
+        "rsi": rsi
     }
+    market_data_cache[f"{ticker}_df"] = stock_data
 
     return result
-
 
 
 
